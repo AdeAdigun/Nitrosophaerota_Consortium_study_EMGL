@@ -1,0 +1,92 @@
+mkdir qiime2
+
+qiime tools import --type 'SampleData[PairedEndSequencesWithQuality]' --input-path sample_manifest.csv --output-path qiime2/reads.qza --input-format PairedEndFastqManifestPhred33
+
+qiime cutadapt trim-paired --i-demultiplexed-sequences qiime2/reads.qza --p-cores 71 --p-front-f GTGYCAGCMGCCGCGGTAA --p-front-r CCGYCAATTYMTTTRAGTTT --p-discard-untrimmed --p-no-indels --o-trimmed-sequences qiime2/trimmed_reads.qza
+
+qiime demux summarize --i-data qiime2/trimmed_reads.qza --o-visualization qiime2/trimmed_reads.qzv
+
+###### check the 'qiime2/trimmed_reads.qzv' file. and you need to adjust the values appropriately --> --p-trunc-len-f 267 --p-trunc-len-r 185 --p-max-ee-f 3 --p-max-ee-r 3.
+
+
+
+#######DADA2 only requires 12 bp of overlap (20 was a requirement a long time ago). Your target amplicon is926-515=411 bp long. You’ll need 12 bp of overlap, so 411+12 = 423. And most 16s amplicons naturally vary by a few bp in length, so it would probably be safest if the length of your truncated f and r reads summed to 430.
+
+The parameters you select will vary depending on your study. Ideally, I aim to truncate when the median q score drops below 30. For high-quality, high-biomass, samples, this is often possible, but your data may not allow that.
+
+If you include positions with low quality scores, you will lose reads during the filtering step. If you truncate too much, you will lose reads during the merging step, because your reads won’t join.##############
+
+
+
+qiime dada2 denoise-paired --i-demultiplexed-seqs qiime2/trimmed_reads.qza --p-trunc-len-f 276 --p-trunc-len-r 180 --p-max-ee-f 3 --p-max-ee-r 3 --p-n-threads 71 --output-dir qiime2/dada2_output
+
+qiime tools export --input-path qiime2/dada2_output/denoising_stats.qza --output-path qiime2/dada2_output
+
+qiime feature-table summarize --i-table qiime2/dada2_output/table.qza --o-visualization qiime2/dada2_output/table.qzv --m-sample-metadata-file metadata.txt
+
+qiime feature-table tabulate-seqs --i-data qiime2/dada2_output/representative_sequences.qza --o-visualization qiime2/dada2_output/representative_sequences.qzv
+
+qiime metadata tabulate --m-input-file qiime2/dada2_output/denoising_stats.qza --o-visualization qiime2/dada2_output/denoising_stats.qzv
+
+qiime vsearch uchime-denovo --i-table qiime2/dada2_output/table.qza --i-sequences qiime2/dada2_output/representative_sequences.qza --output-dir qiime2/uchime-dn-out
+
+qiime metadata tabulate --m-input-file qiime2/uchime-dn-out/stats.qza --o-visualization qiime2/uchime-dn-out/stats.qzv
+
+qiime feature-table filter-features --i-table qiime2/dada2_output/table.qza --m-metadata-file qiime2/uchime-dn-out/nonchimeras.qza --o-filtered-table qiime2/uchime-dn-out/table-nonchimeric-wo-borderline.qza
+
+qiime feature-table filter-seqs --i-data qiime2/dada2_output/representative_sequences.qza --m-metadata-file qiime2/uchime-dn-out/nonchimeras.qza --o-filtered-data qiime2/uchime-dn-out/rep-seqs-nonchimeric-wo-borderline.qza
+
+mkdir qiime2/after_exclude_chimera/
+
+cp qiime2/uchime-dn-out/table-nonchimeric-wo-borderline.qza qiime2/after_exclude_chimera/table.qza
+
+cp qiime2/uchime-dn-out/rep-seqs-nonchimeric-wo-borderline.qza qiime2/after_exclude_chimera/rep-seqs.qza
+
+qiime feature-table summarize --i-table qiime2/uchime-dn-out/table-nonchimeric-wo-borderline.qza --o-visualization qiime2/after_exclude_chimera/table.qzv
+
+qiime feature-table tabulate-seqs --i-data qiime2/uchime-dn-out/rep-seqs-nonchimeric-wo-borderline.qza --o-visualization qiime2/after_exclude_chimera/rep-seqs.qzv
+
+######gg2 taxonomy <-- currently recomended
+
+qiime feature-classifier classify-sklearn --i-reads qiime2/after_exclude_chimera/rep-seqs.qza --i-classifier /home/sophy/qiime2_data/2022.10.backbone.515F-926R.nb.qza --p-read-orientation same --p-n-jobs 71 --output-dir qiime2/taxa_gg2_dada2
+
+qiime tools export --input-path qiime2/taxa_gg2_dada2/classification.qza --output-path qiime2/taxa_gg2_dada2
+
+###### number in (--p-min-frequency 74) should change to the number [mean (depends on the samples) sample depth * 0.001, and round to the nearest integer] (you don't need to run this for checking purity, or set --p-min-frequency to 1) https://forum.qiime2.org/t/calculating-minimum-frequency-count/6205
+qiime feature-table filter-features --i-table qiime2/after_exclude_chimera/table.qza --p-min-frequency 1 --p-min-samples 1 --o-filtered-table qiime2/dada2_output/dada2_table_filt.qza
+
+qiime taxa filter-table --i-table qiime2/dada2_output/dada2_table_filt.qza --i-taxonomy qiime2/taxa_gg2_dada2/classification.qza --p-exclude mitochondria,chloroplast --o-filtered-table qiime2/dada2_output/dada2_table_filt_contam.qza
+
+qiime feature-table summarize --i-table qiime2/dada2_output/dada2_table_filt_contam.qza --o-visualization qiime2/dada2_output/dada2_table_filt_contam.qzv
+
+
+###### number in (--p-max-depth 131274) should change to lowest sample depth from the file dada2_table_filt_contam.qzv
+qiime diversity alpha-rarefaction --i-table qiime2/dada2_output/dada2_table_filt_contam.qza --p-max-depth 42080 --p-steps 20 --p-metrics 'observed_features' --o-visualization qiime2/dada2_rarefaction_curves_eachsample.qzv
+
+cp qiime2/dada2_output/dada2_table_filt_contam.qza qiime2/dada2_output/dada2_table_final.qza
+
+qiime feature-table filter-seqs --i-data qiime2/after_exclude_chimera/rep-seqs.qza --i-table qiime2/dada2_output/dada2_table_final.qza --o-filtered-data qiime2/dada2_output/rep_seqs_final.qza
+
+qiime feature-table summarize --i-table qiime2/dada2_output/dada2_table_final.qza --o-visualization qiime2/dada2_output/dada2_table_final_summary.qzv
+
+qiime fragment-insertion sepp --i-representative-sequences qiime2/dada2_output/rep_seqs_final.qza --i-reference-database /home/sophy/qiime2_data/sepp-refs-gg-13-8.qza --o-tree qiime2/dada2_asvs-tree.qza --o-placements insertion-placements.qza --p-threads 71
+
+qiime taxa barplot --i-table qiime2/dada2_output/dada2_table_final.qza --i-taxonomy qiime2/taxa_gg2_dada2/classification.qza --m-metadata-file metadata.txt --o-visualization qiime2/taxa_gg2_dada2_taxa_barplot.qzv
+
+qiime tools export --input-path qiime2/dada2_output/rep_seqs_final.qza --output-path qiime2/output_exported_dada2
+
+qiime feature-table relative-frequency --i-table qiime2/dada2_output/dada2_table_final.qza --o-relative-frequency-table qiime2/dada2_output/dada2_table_final_rf.qza
+
+sed -i -e '1 s/Feature/#Feature/' -e '1 s/Taxon/taxonomy/' qiime2/taxa_gg2_dada2/taxonomy.tsv
+
+qiime tools export --input-path qiime2/dada2_output/dada2_table_final.qza --output-path qiime2/output_exported_dada2
+
+biom add-metadata -i qiime2/output_exported_dada2/feature-table.biom -o qiime2/output_exported_dada2/feature-table_w_tax_gg2.biom --observation-metadata-fp qiime2/taxa_gg2_dada2/taxonomy.tsv --sc-separated taxonomy
+
+biom convert -i qiime2/output_exported_dada2/feature-table_w_tax_gg2.biom -o qiime2/output_exported_dada2/feature-table_w_tax_gg2.txt --to-tsv --header-key taxonomy
+
+qiime tools export --input-path qiime2/dada2_output/dada2_table_final_rf.qza --output-path qiime2/output_exported_dada2_rf
+
+biom add-metadata -i qiime2/output_exported_dada2_rf/feature-table.biom -o qiime2/output_exported_dada2_rf/feature-table_w_tax_gg2.biom --observation-metadata-fp qiime2/taxa_gg2_dada2/taxonomy.tsv --sc-separated taxonomy
+
+biom convert -i qiime2/output_exported_dada2_rf/feature-table_w_tax_gg2.biom -o qiime2/output_exported_dada2_rf/feature-table_w_tax_gg2.tsv --to-tsv --header-key taxonomy
