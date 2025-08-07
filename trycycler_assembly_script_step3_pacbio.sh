@@ -18,3 +18,5 @@ trycycler consensus --cluster_dir trycycler/cluster_001 --threads 71  --verbose
 echo "Post-assembly consensus"
 
 cat trycycler/cluster_*/8_medaka.fasta > trycycler/consensus.fasta
+
+echo "done"

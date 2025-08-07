@@ -41,3 +41,4 @@ canu -p canu -d canu_temp -fast genomeSize=5m useGrid=false maxThreads="$threads
     rm -rf canu_temp
 
 raven --threads "$threads" --disable-checkpoints --graphical-fragment-assembly assemblies/assembly_12.gfa read_subsets/sample_12.fastq > assemblies/assembly_12.fasta
+echo "done"
