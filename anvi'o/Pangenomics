@@ -1,0 +1,42 @@
+ls *.fasta | awk 'BEGIN{FS="_genom"}{print $1}' > genomes.txt
+
+rename 's/.fna/.fasta/' *.fna
+
+for g in `cat genomes.txt`
+do
+anvi-script-reformat-fasta ${g}*.fasta -o ./${g}-fixed.fasta -l 2500 --simplify-names 
+done
+
+
+for g in `cat genomes.txt`
+do
+anvi-gen-contigs-database -f ${g}-fixed.fasta -o ./${g}.db --num-threads 71 -n Bin2_${g}
+done
+
+for g in *.db
+do
+anvi-run-hmms -c $g --num-threads 71
+anvi-run-ncbi-cogs -c $g --num-threads 71
+anvi-scan-trnas -c $g --num-threads 71
+anvi-run-scg-taxonomy -c $g --num-threads 71
+done
+
+anvi-display-contigs-stats *.db
+
+emgl4416
+
+anvi-script-gen-genomes-file --input-dir ./ -o external-genomes.txt
+
+anvi-gen-genomes-storage -e external-genomes.txt -o Bin2-GENOMES.db
+
+anvi-pan-genome -g Bin2-GENOMES.db --project-name BIN2 --num-threads 71 --enforce-hierarchical-clustering --min-occurrence 2 --force-overwrite
+
+anvi-display-pan -p BIN2/BIN2-PAN.db -g Bin2-GENOMES.db
+
+anvi-compute-genome-similarity --external-genomes external-genomes.txt --program pyANI --output-dir ANI --num-threads 71 --pan-db BIN2/BIN2-PAN.db
+
+anvi-display-pan -p BIN2/BIN2-PAN.db -g Bin2-GENOMES.db
+
+anvi-show-collections-and-bins -p BIN2/BIN2-PAN.db
+  
+anvi-summarize -g Bin2-GENOMES.db -p BIN2/BIN2-PAN.db -C collection --list-collections
