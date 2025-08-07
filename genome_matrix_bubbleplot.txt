@@ -1,0 +1,36 @@
+Step 1: Organize Your Input Files and make a target_genes.csv file
+Make sure all your genome files (e.g., genome1.faa, genome2.faa, ...) are in one directory.
+
+Step 2: Draw a phylogenomic tree of all strains and root.
+
+Step 3: Write the Bash Script to Automate EggNOG-mapper
+You can use a Bash script to automate the process. This script will loop over each .faa file in the directory and run EggNOG-mapper for each file. You can also specify the number of CPU cores to speed up the process.
+script called run_emapper.sh
+
+source run_emapper.sh
+
+Step 3: Automate KO ID Extraction and Matrix Creation
+Once you've run the script and annotated all genomes, you can create a matrix of KO IDs and copy numbers for all genomes. Here’s an additional script that will automate the extraction of KO IDs from all results and generate a matrix.
+a script called extract_KO.sh:
+
+source extract_KO.sh
+
+Step 6: Run the Matrix Creation Script
+After running the annotation script, you can execute the matrix creation script:
+
+source create_matrix.sh
+
+
+This will generate a file KO_matrix.tsv) with the KO counts for each genome, which you can then use to create the heatmap.
+
+Step 7: Create the Heatmap in R
+
+Making the plot_circle.R
+
+Edit
+
+desired_sample_order
+
+desired_gene_order
+
+trait_colors
