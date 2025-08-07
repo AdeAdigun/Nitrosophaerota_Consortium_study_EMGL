@@ -1,0 +1,24 @@
+for F in raw_reads/*_1.fastq; do R=${F%_*}_2.fastq; BASE=${F##*/}; SAMPLE=${BASE%_*}; metawrap read_qc -1 $F -2 $R -t 71 -o read_qc/$SAMPLE --skip-bmtagger & done
+
+mkdir clean_reads
+for i in read_qc/*; do 
+	b=${i#*/}
+	mv ${i}/final_pure_reads_1.fastq clean_reads/${b}_1.fastq
+	mv ${i}/final_pure_reads_2.fastq clean_reads/${b}_2.fastq
+done
+
+metaWRAP binning -a assembly.fa -o NA -t 71 -m 950 --metabat2 --maxbin2 --concoct --universal --run-checkm clean_reads/D*fastq
+
+metawrap bin_refinement -o bin_refinement -t 71 -A ./NA/metabat2_bins -B ./NA/maxbin2_bins -C ./NA/concoct_bins -m 950 -c 70 -x 10
+
+metawrap classify_bins -b bin_refinement/metawrap_70_10_bins -o bin_classification -t 71
+
+for file in *.fa; do source ~/emgl_scripts/basic_annot_w_prokka_v3_temp.bash "$file" Bacteria; done
+
+checkm lineage_wf -t 71 -x fa ./ ./checkm
+
+metawrap reassemble_bins -o bin_reassembly -b ./bin_refinement/metawrap_70_10_bins -1 ./clean_reads/D_1.fastq -2 ./clean_reads/D_2.fastq -t 71 -m 950 -c 70 -x 10 
+
+metawrap blobology -a /mnt/sdg1/WORK-EMGL/ADE/BIN2/Automatic_binning/assembly.fa -t 71 -o BLOBOLOGY --bins /mnt/sdg1/WORK-EMGL/ADE/BIN2/Automatic_binning/bin_refinement/metawrap_70_10_bins ./clean_reads/D_*.fastq
+
+comparem aai_wf /mnt/sdg1/WORK-EMGL/ADE/BIN2/Automatic_binning/AAI/NA2  ./ 
