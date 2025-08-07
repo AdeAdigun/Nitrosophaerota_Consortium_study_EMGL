@@ -1,0 +1,53 @@
+##Protocol for Hybrid Assembly. (Can also be used for Nanopore sequencing reads)
+####make directory to save reads after QC
+
+mkdir reads_qc
+
+conda activate hybrid_ade
+
+fastp --in1 Paracoccus_1.fastq.gz --in2 Paracoccus_1.fastq.gz --out1 reads_qc/illumina_1.fastq.gz --out2 reads_qc/illumina_2.fastq.gz --unpaired1 reads_qc/illumina_u.fastq.gz --unpaired2 reads_qc/illumina_u.fastq.gz
+
+rm reads_qc/illumina_u.fastq.gz
+
+filtlong --min_length 1000 Paracoccus_HiFi.fastq.gz > reads_qc/pacbio_1k.fastq
+
+filtlong --keep_percent 90 reads_qc/pacbio_1k.fastq > reads_qc/pacbio.fastq
+
+rm reads_qc/pacbio_1k.fastq
+
+conda deactivate
+conda activate trycycler
+
+source /mnt/sdg1/WORK-EMGL/ADE/2024_7_1_MINION/trycycler_assembly_script.sh
+
+trycycler cluster --assemblies assemblies/*.fasta --reads pacbio.fastq --out_dir trycycler --threads 71
+
+####As you run reconcile for each cluster, pay attention to individual files that have problems in the cluster. 
+###For example, if in cluster 1 there are 5 files and reconcile fails because one is too long. Change the extension of that file to XXXX.fasta.bad this will automatically exclude that file
+###You should have at least 4 fasta files per cluster to be safe. If there are less, consider going back to the first step and making more than 12 assemblies. (You will have to edit the script---- trycycler_assembly_script.sh)
+
+trycycler reconcile --reads pacbio.fastq --cluster_dir trycycler/cluster_001 --threads 71 --verbose
+trycycler reconcile --reads pacbio.fastq --cluster_dir trycycler/cluster_002 --threads 71 --verbose
+trycycler reconcile --reads pacbio.fastq --cluster_dir trycycler/cluster_003 --threads 71 --verbose
+trycycler reconcile --reads pacbio.fastq --cluster_dir trycycler/cluster_004 --threads 71 --verbose
+trycycler reconcile --reads pacbio.fastq --cluster_dir trycycler/cluster_005 --threads 71 --verbose
+trycycler reconcile --reads pacbio.fastq --cluster_dir trycycler/cluster_006 --threads 71 --verbose
+trycycler reconcile --reads pacbio.fastq --cluster_dir trycycler/cluster_007 --threads 71 --verbose
+trycycler reconcile --reads pacbio.fastq --cluster_dir trycycler/cluster_008 --threads 71 --verbose
+trycycler reconcile --reads pacbio.fastq --cluster_dir trycycler/cluster_009 --threads 71 --verbose
+trycycler reconcile --reads pacbio.fastq --cluster_dir trycycler/cluster_010 --threads 71 --verbose
+trycycler reconcile --reads pacbio.fastq --cluster_dir trycycler/cluster_011 --threads 71 --verbose
+trycycler reconcile --reads pacbio.fastq --cluster_dir trycycler/cluster_012 --threads 71 --verbose
+trycycler reconcile --reads pacbio.fastq --cluster_dir trycycler/cluster_013 --threads 71 --verbose
+trycycler reconcile --reads pacbio.fastq --cluster_dir trycycler/cluster_014 --threads 71 --verbose
+trycycler reconcile --reads pacbio.fastq --cluster_dir trycycler/cluster_015 --threads 71 --verbose
+trycycler reconcile --reads pacbio.fastq --cluster_dir trycycler/cluster_016 --threads 71 --verbose
+trycycler reconcile --reads pacbio.fastq --cluster_dir trycycler/cluster_017 --threads 71 --verbose
+trycycler reconcile --reads pacbio.fastq --cluster_dir trycycler/cluster_018 --threads 71 --verbose
+trycycler reconcile --reads pacbio.fastq --cluster_dir trycycler/cluster_019 --threads 71 --verbose
+trycycler reconcile --reads pacbio.fastq --cluster_dir trycycler/cluster_020 --threads 71 --verbose
+trycycler reconcile --reads pacbio.fastq --cluster_dir trycycler/cluster_021 --threads 71 --verbose
+trycycler reconcile --reads pacbio.fastq --cluster_dir trycycler/cluster_022 --threads 71 --verbose
+trycycler reconcile --reads pacbio.fastq --cluster_dir trycycler/cluster_023 --threads 71 --verbose
+
+source /mnt/sdg1/WORK-EMGL/ADE/Paracoccus/reads_qc/trycycler_assembly_script_step3_pacbio.sh
