@@ -1,4 +1,4 @@
-##Protocol for Hybrid Assembly. (Can also be used for Nanopore sequencing reads)
+##Protocol for Hybrid Assembly. (Can also be used for Nanopore  sequencing reads)
 ####make directory to save reads after QC
 
 mkdir reads_qc
