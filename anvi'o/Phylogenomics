@@ -1,0 +1,37 @@
+#The first thing we need to do is to generate an anvi’o contigs database for each one of them
+
+for i in `ls *fna | awk 'BEGIN{FS=".fna"}{print $1}'`
+do
+anvi-script-reformat-fasta $i.fna -o $i-fixed.fna -l 0 --simplify-names
+done
+
+for i in `ls *-fixed.fna | awk 'BEGIN{FS=".fna"}{print $1}'`
+do
+    anvi-gen-contigs-database -f $i.fna -o $i.db -T 71 --project-name NA2
+    anvi-run-hmms -c $i.db
+done
+
+#The next step is to define all the contigs databases of interest, and give them a name to introduce them to anvi’o. Let’s call this file ‘external-genomes.txt
+
+
+for file in *-fixed.db; do mv "$file" "${file/-fixed/}"; done
+
+anvi-script-gen-genomes-file --input-dir ./ -o external-genomes.txt
+OR
+for i in *.db; do echo -e "${i%.db}\t${i}"; done >> genomes_list.txt
+
+=REPLACE(A1, FIND("Nitrososphaerota_archaeon_SubAcS15_15.db", A1), LEN("Nitrososphaerota_archaeon_SubAcS15_15.db"), B1)
+
+#GetgenesToConcatenate
+
+anvi-get-sequences-for-hmm-hits --external-genomes genomes_list.txt --hmm-source Archaea_76 --list-available-gene-names
+
+anvi-get-sequences-for-hmm-hits --external-genomes external-genomes.txt --hmm-source Archaea_76 --list-available-gene-names
+
+anvi-get-sequences-for-hmm-hits --external-genomes genomes_list.txt -o concatenated-proteins.fa --hmm-source Archaea_76 --return-best-hit --get-aa-sequences --concatenate
+
+anvi-get-sequences-for-hmm-hits --external-genomes external-genomes.txt -o concatenated-proteins.fa --hmm-source Archaea_76 --return-best-hit --get-aa-sequences --concatenate
+
+anvi-gen-phylogenomic-tree -f concatenated-proteins.fa -o phylogenomic-tree.txt
+
+iqtree -s concatenated-proteins.fa -B 1000 -m MFP -T AUTO
